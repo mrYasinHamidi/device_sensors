@@ -1,7 +1,7 @@
 name: device_sensors
 description: A flutter package for work with sensors.
 version: 0.0.1
-homepage:
+homepage: https://github.com/mrYasinHamidi/device_sensors
 
 environment:
   sdk: ">=2.15.1 <3.0.0"
