@@ -5,6 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.BatteryManager
+import android.widget.Switch
 import androidx.annotation.NonNull
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -14,74 +16,49 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /** SensorsPlugin */
-class DeviceSensorsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
-    EventChannel.StreamHandler,
-    ActivityAware {
+class DeviceSensorsPlugin : FlutterPlugin, EventChannel.StreamHandler, ActivityAware {
 
-    private lateinit var context: Context
-    private lateinit var methodChannel: MethodChannel
     private lateinit var eventChannel: EventChannel
-    private lateinit var sensorManager: SensorManager
+    private lateinit var sensorHelper: SensorHelper
 
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        context = flutterPluginBinding.applicationContext
-        methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "methodSensors")
+        sensorHelper = SensorHelper(flutterPluginBinding.applicationContext)
         eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "eventsSensors")
-        methodChannel.setMethodCallHandler(this)
         eventChannel.setStreamHandler(this)
     }
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-        sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        var sensor: Sensor? = null
-        if (arguments == "lightSensor") {
-            sensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
-        } else if (arguments == "proximitySensor") {
-            sensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
+        var sensorType: SensorType? = null
+        when (arguments) {
+            "lightSensor" -> {
+                sensorType = SensorType.LIGHT
+            }
+            "proximitySensor" -> {
+                sensorType = SensorType.PROXIMITY
+            }
+            "accelerationSensor" -> {
+                sensorType = SensorType.ACCELERATION
+            }
         }
-        sensor?.let {
-            sensorManager.registerListener(object : SensorEventListener {
-                override fun onSensorChanged(p0: SensorEvent?) {
-                    p0?.let {
-                        events?.success(p0.values)
-                    }
-                }
+        if (sensorType == null) events?.endOfStream()
 
-                override fun onAccuracyChanged(p0: Sensor?, p1: Int) {
+        events?.let {
+            sensorType?.let {
+                sensorHelper.setListener(sensorType) { data ->
+                    events.success(data.data)
                 }
-            }, sensor, 1)
+            }
         }
 
     }
 
     override fun onCancel(arguments: Any?) {
-        TODO("Not yet implemented")
+        sensorHelper.removeListener()
     }
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
-        methodChannel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
-    }
-
-    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        if (call.method == "getLightSensorEvent") {
-            sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-            val lightSensor: Sensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
-            sensorManager.registerListener(object : SensorEventListener {
-                override fun onSensorChanged(p0: SensorEvent?) {
-                    p0?.let {
-                        result.success(it.values)
-                    }
-                }
-
-                override fun onAccuracyChanged(p0: Sensor?, p1: Int) {
-                }
-            }, lightSensor, 1)
-        } else {
-            result.notImplemented()
-        }
-
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -102,3 +79,64 @@ class DeviceSensorsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
 
 }
 
+class SensorHelper(context: Context) {
+    private var sensorManager: SensorManager =
+        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+    private var refreshPeriod: Int = 1
+        set(value) {
+            field = if (value < 1)
+                1
+            else
+                value
+        }
+
+    private lateinit var sensorEventListener: SensorEventListener
+
+    private fun isSensorAvailable(sensor: Sensor): Boolean {
+
+        return true
+    }
+
+    private fun getSensorId(type: SensorType): Int =
+        when (type) {
+            SensorType.PROXIMITY -> Sensor.TYPE_PROXIMITY
+            SensorType.LIGHT -> Sensor.TYPE_LIGHT
+            SensorType.ACCELERATION -> Sensor.TYPE_ACCELEROMETER
+        }
+
+    private fun getSensor(type: SensorType): Sensor? {
+        val sensor: Sensor = sensorManager.getDefaultSensor(getSensorId(type))
+
+        if (!isSensorAvailable(sensor))
+            return null
+        return sensor
+    }
+
+    fun setListener(sensorType: SensorType, response: (data: SensorData) -> Unit) {
+        val sensor: Sensor = getSensor(sensorType) ?: return
+        sensorEventListener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+                event?.let {
+                    response(SensorData(type = sensorType, data = event.values))
+                }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+            }
+
+        }
+        sensorManager.registerListener(sensorEventListener, sensor, refreshPeriod)
+    }
+
+    fun removeListener() {
+        sensorManager.unregisterListener(sensorEventListener)
+    }
+
+}
+
+data class SensorData(val type: SensorType, val data: FloatArray)
+
+enum class SensorType {
+    PROXIMITY, LIGHT, ACCELERATION
+}

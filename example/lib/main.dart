@@ -15,6 +15,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String text = '';
   String proximityText = '';
+
   @override
   void initState() {
     super.initState();
@@ -23,13 +24,17 @@ class _MyAppState extends State<MyApp> {
     //     text = value;
     //   });
     // });
-    DeviceSensors.listenToProximitySensor((value){
+    // DeviceSensors.listenTo(SensorType.PROXIMITY, (value) {
+    //   setState(() {
+    //     proximityText = value;
+    //   });
+    // });
+    DeviceSensors.listenTo(SensorType.ACCELERATION, (value) {
       setState(() {
-        proximityText = value;
+        proximityText = 'Z : ${value[0]}\nY : ${value[1]}\nX : ${value[2]}\n';
       });
     });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +44,7 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Plugin example app'),
         ),
         body: Center(
-          child: Text('Lightness : $text \t Proximity : $proximityText'),
+          child: Text('$proximityText'),
         ),
       ),
     );
