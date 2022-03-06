@@ -7,7 +7,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 class DeviceSensors {
-  static const EventChannel _eventChannel = EventChannel('eventsSensors');
+  static const EventChannel _eventChannel = EventChannel('com.yasin.device_sensors_event_channel');
 
   static void listenToLightSensor(Function(String value) listener) {
     _eventChannel.receiveBroadcastStream('lightSensor').distinct().listen((event) {

@@ -24,7 +24,7 @@ class DeviceSensorsPlugin : FlutterPlugin, EventChannel.StreamHandler, ActivityA
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         sensorHelper = SensorHelper(flutterPluginBinding.applicationContext)
-        eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "eventsSensors")
+        eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "com.yasin.device_sensors_event_channel")
         eventChannel.setStreamHandler(this)
     }
 
